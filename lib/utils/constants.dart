@@ -71,7 +71,7 @@ class AppTextStyles {
 }
 
 class AppStrings {
-  static const String appName = 'SocialApp';
+  static const String appName = 'SocialVibe';
   static const String login = 'Login';
   static const String register = 'Register';
   static const String email = 'Email';
@@ -99,6 +99,7 @@ class AppStrings {
   static const String posts = 'Posts';
   static const String editProfile = 'Edit Profile';
   static const String logout = 'Logout';
+  static const String save = 'Save';
   static const String settings = 'Settings';
   static const String about = 'About';
   static const String help = 'Help';

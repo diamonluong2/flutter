@@ -20,7 +20,24 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
 
   @override
+  void initState() {
+    super.initState();
+    // Add listeners to clear error when user starts typing
+    _emailController.addListener(_clearError);
+    _passwordController.addListener(_clearError);
+  }
+
+  void _clearError() {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.error != null) {
+      authProvider.setError(null);
+    }
+  }
+
+  @override
   void dispose() {
+    _emailController.removeListener(_clearError);
+    _passwordController.removeListener(_clearError);
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -68,10 +85,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             AppSizes.radiusXL,
                           ),
                         ),
-                        child: const Icon(
-                          Icons.chat_bubble_outline,
-                          size: 40,
-                          color: Colors.white,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusXL,
+                          ),
+                          child: Image.asset(
+                            'assets/logoApp.jpg',
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                       const SizedBox(height: AppSizes.paddingL),
@@ -223,11 +246,39 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               border: Border.all(color: Colors.red.shade200),
                             ),
-                            child: Text(
-                              authProvider.error!,
-                              style: AppTextStyles.body2.copyWith(
-                                color: Colors.red.shade700,
-                              ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Colors.red.shade600,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: AppSizes.paddingS),
+                                Expanded(
+                                  child: Text(
+                                    authProvider.error!,
+                                    style: AppTextStyles.body2.copyWith(
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: () {
+                                    authProvider.setError(null);
+                                  },
+                                  icon: Icon(
+                                    Icons.close,
+                                    color: Colors.red.shade600,
+                                    size: 18,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 24,
+                                    minHeight: 24,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: AppSizes.paddingM),

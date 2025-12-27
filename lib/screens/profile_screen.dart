@@ -6,6 +6,7 @@ import '../providers/post_provider.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import 'login_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -145,8 +146,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton(
-                            onPressed: () {
-                              // Navigate to edit profile
+                            onPressed: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const EditProfileScreen(),
+                                ),
+                              );
+                              // Refresh profile data if profile was updated
+                              if (result == true && mounted) {
+                                // Profile was updated, refresh data
+                                setState(() {});
+                              }
                             },
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: AppColors.primary),

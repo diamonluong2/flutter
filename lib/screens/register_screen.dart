@@ -68,13 +68,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const SizedBox(height: AppSizes.paddingL),
 
-                // Title
-                Text(
-                  'Create Account',
-                  style: AppTextStyles.headline1.copyWith(
-                    color: AppColors.primary,
+                // Logo and Title
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusXL,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusXL,
+                          ),
+                          child: Image.asset(
+                            'assets/logoApp.jpg',
+                            width: 80,
+                            height: 80,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSizes.paddingL),
+                      Text(
+                        'Create Account',
+                        style: AppTextStyles.headline1.copyWith(
+                          color: AppColors.primary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSizes.paddingS),
                 Text(

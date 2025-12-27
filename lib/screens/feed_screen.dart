@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/post_provider.dart';
+import '../providers/notification_provider.dart';
+import '../providers/message_provider.dart';
 import '../utils/constants.dart';
 import '../widgets/post_card.dart';
+import 'notifications_screen.dart';
+import 'conversations_screen.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -21,6 +25,15 @@ class _FeedScreenState extends State<FeedScreen> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    // Initialize notifications when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationProvider>().initialize();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -32,16 +45,63 @@ class _FeedScreenState extends State<FeedScreen> {
           style: AppTextStyles.headline3.copyWith(color: AppColors.primary),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // Navigate to notifications
+          Consumer<NotificationProvider>(
+            builder: (context, notificationProvider, child) {
+              return Badge(
+                offset: const Offset(-7, 7),
+                label: Text(
+                  notificationProvider.unreadCount.toString(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+                isLabelVisible: notificationProvider.hasUnread,
+                child: IconButton(
+                  icon: const Icon(Icons.notifications_outlined),
+                  onPressed: () {
+                    final navigatorContext = context;
+                    Navigator.push(
+                      navigatorContext,
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationsScreen(),
+                      ),
+                    ).then((_) {
+                      // Refresh notifications count when returning from notifications screen
+                      if (mounted) {
+                        navigatorContext
+                            .read<NotificationProvider>()
+                            .updateUnreadCount();
+                      }
+                    });
+                  },
+                ),
+              );
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.message_outlined),
-            onPressed: () {
-              // Navigate to messages
+          Consumer<MessageProvider>(
+            builder: (context, messageProvider, child) {
+              return Badge(
+                offset: const Offset(-7, 7),
+                label: Text(
+                  messageProvider.unreadCount.toString(),
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
+                ),
+                isLabelVisible: messageProvider.hasUnread,
+                child: IconButton(
+                  icon: const Icon(Icons.message_outlined),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ConversationsScreen(),
+                      ),
+                    ).then((_) {
+                      // Refresh unread count when returning
+                      if (mounted) {
+                        context.read<MessageProvider>().updateUnreadCount();
+                      }
+                    });
+                  },
+                ),
+              );
             },
           ),
         ],

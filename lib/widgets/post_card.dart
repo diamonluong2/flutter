@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../providers/post_provider.dart';
+import '../providers/like_provider.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
 import '../screens/post_detail_screen.dart';
@@ -195,47 +196,62 @@ class PostCard extends StatelessWidget {
             ],
 
             // Post Actions
-            Row(
-              children: [
-                _buildActionButton(
-                  icon: post.isLiked ? Icons.favorite : Icons.favorite_border,
-                  label: Helpers.formatNumber(post.likesCount),
-                  color: post.isLiked
-                      ? AppColors.like
-                      : AppColors.textSecondary,
-                  onTap: () async {
-                    await context.read<PostProvider>().toggleLike(post.id);
-                  },
-                ),
-                const SizedBox(width: AppSizes.paddingL),
-                _buildActionButton(
-                  icon: Icons.chat_bubble_outline,
-                  label: Helpers.formatNumber(post.commentsCount),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PostDetailScreen(post: post),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: AppSizes.paddingL),
-                _buildActionButton(
-                  icon: Icons.repeat,
-                  label: Helpers.formatNumber(post.sharesCount),
-                  onTap: () {
-                    context.read<PostProvider>().sharePost(post.id);
-                  },
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.share),
-                  onPressed: () {
-                    // Share post
-                  },
-                ),
-              ],
+            Consumer<LikeProvider>(
+              builder: (context, likeProvider, child) {
+                final hasLiked = likeProvider.hasLikedPost(post.id);
+                final likesCount = likeProvider.getLikesCount(post.id);
+
+                return Row(
+                  children: [
+                    _buildActionButton(
+                      icon: hasLiked ? Icons.favorite : Icons.favorite_border,
+                      label: Helpers.formatNumber(likesCount),
+                      color: hasLiked
+                          ? AppColors.like
+                          : AppColors.textSecondary,
+                      onTap: () async {
+                        try {
+                          await likeProvider.toggleLike(post.id);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                    const SizedBox(width: AppSizes.paddingL),
+                    _buildActionButton(
+                      icon: Icons.chat_bubble_outline,
+                      label: Helpers.formatNumber(post.commentsCount),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PostDetailScreen(post: post),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: AppSizes.paddingL),
+                    _buildActionButton(
+                      icon: Icons.repeat,
+                      label: Helpers.formatNumber(post.sharesCount),
+                      onTap: () {
+                        context.read<PostProvider>().sharePost(post.id);
+                      },
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      onPressed: () {
+                        // Share post
+                      },
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),

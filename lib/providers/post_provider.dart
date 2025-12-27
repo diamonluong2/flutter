@@ -3,6 +3,8 @@ import '../models/post.dart';
 import '../models/user.dart';
 import '../models/comment.dart';
 import '../services/pocketbase_service.dart';
+import '../utils/blacklist.dart';
+import 'like_provider.dart';
 
 class PostProvider extends ChangeNotifier {
   final PocketBaseService _pocketBaseService = PocketBaseService();
@@ -10,12 +12,18 @@ class PostProvider extends ChangeNotifier {
   Map<String, List<Comment>> _comments = {};
   bool _isLoading = false;
   String? _error;
+  LikeProvider? _likeProvider;
 
   List<Post> get posts => _posts;
   bool get isLoading => _isLoading;
   String? get error => _error;
   User? get currentUser => _pocketBaseService.currentUser;
   PocketBaseService get pocketBaseService => _pocketBaseService;
+
+  // Set like provider reference
+  void setLikeProvider(LikeProvider likeProvider) {
+    _likeProvider = likeProvider;
+  }
 
   void setLoading(bool loading) {
     _isLoading = loading;
@@ -34,29 +42,59 @@ class PostProvider extends ChangeNotifier {
     try {
       final postsData = await _pocketBaseService.getPosts();
 
-      _posts = postsData.map((postData) {
-        print('Post data: ${postData}');
-        final authorData = postData['author'] as Map<String, dynamic>?;
-        final author = authorData != null
-            ? User.fromJson(authorData)
-            : User(
-                id: 'unknown',
-                username: 'Unknown User',
-                email: 'unknown@example.com',
-                createdAt: DateTime.now(),
-              );
+      // Filter posts to only include approved ones (client-side filter as backup)
+      // This ensures that even if server-side filter fails, we only show approved posts
+      _posts = postsData
+          .where((postData) {
+            final isApproved = postData['isApproved'];
 
-        return Post(
-          id: postData['id'],
-          author: author,
-          content: postData['content'],
-          images: List<String>.from(postData['images'] ?? []),
-          likesCount: postData['likesCount'] ?? 0,
-          commentsCount: postData['commentsCount'] ?? 0,
-          sharesCount: postData['sharesCount'] ?? 0,
-          createdAt: DateTime.parse(postData['createdAt']),
-        );
-      }).toList();
+            // Handle different types: bool, string, null
+            bool approved;
+            if (isApproved == null) {
+              // If null, default to false (don't show unapproved posts)
+              approved = false;
+            } else if (isApproved is bool) {
+              approved = isApproved;
+            } else if (isApproved is String) {
+              approved = isApproved.toLowerCase() == 'true';
+            } else {
+              // For any other type, try to convert to bool
+              approved = isApproved.toString().toLowerCase() == 'true';
+            }
+
+            // Only return posts that are approved (explicitly true)
+            return approved == true;
+          })
+          .map((postData) {
+            final authorData = postData['author'] as Map<String, dynamic>?;
+            final author = authorData != null
+                ? User.fromJson(authorData)
+                : User(
+                    id: 'unknown',
+                    username: 'Unknown User',
+                    email: 'unknown@example.com',
+                    createdAt: DateTime.now(),
+                  );
+
+            return Post(
+              id: postData['id'],
+              author: author,
+              content: postData['content'],
+              images: List<String>.from(postData['images'] ?? []),
+              likesCount: postData['likesCount'] ?? 0,
+              commentsCount: postData['commentsCount'] ?? 0,
+              sharesCount: postData['sharesCount'] ?? 0,
+              createdAt: DateTime.parse(postData['createdAt']),
+              isApproved: postData['isApproved'] ?? true,
+            );
+          })
+          .toList();
+
+      // Initialize like data for all posts
+      if (_likeProvider != null) {
+        final postIds = _posts.map((post) => post.id).toList();
+        await _likeProvider!.initializeLikeData(postIds);
+      }
 
       setLoading(false);
       notifyListeners();
@@ -72,6 +110,15 @@ class PostProvider extends ChangeNotifier {
     setError(null);
 
     try {
+      // Kiểm tra blacklist trước khi tạo post
+      final bannedWords = Blacklist.checkContent(content);
+      if (bannedWords != null) {
+        setLoading(false);
+        setError(Blacklist.getErrorMessage(bannedWords));
+        notifyListeners();
+        return;
+      }
+
       // Create post with images
       final postData = await _pocketBaseService.createPost(content, images);
 
@@ -94,6 +141,7 @@ class PostProvider extends ChangeNotifier {
         commentsCount: postData['commentsCount'] ?? 0,
         sharesCount: postData['sharesCount'] ?? 0,
         createdAt: DateTime.parse(postData['createdAt']),
+        isApproved: postData['isApproved'] ?? true,
       );
 
       _posts.insert(0, newPost);
@@ -167,6 +215,14 @@ class PostProvider extends ChangeNotifier {
 
   Future<void> addComment(String postId, String content) async {
     try {
+      // Kiểm tra blacklist trước khi tạo comment
+      final bannedWords = Blacklist.checkContent(content);
+      if (bannedWords != null) {
+        setError(Blacklist.getErrorMessage(bannedWords));
+        notifyListeners();
+        return;
+      }
+
       await _pocketBaseService.addComment(postId, content);
 
       // Fetch updated comments

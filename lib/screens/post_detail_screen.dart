@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/post.dart';
 import '../providers/post_provider.dart';
 import '../utils/constants.dart';
+import '../utils/blacklist.dart';
 import '../widgets/post_card.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -17,11 +18,20 @@ class PostDetailScreen extends StatefulWidget {
 class _PostDetailScreenState extends State<PostDetailScreen> {
   final _commentController = TextEditingController();
   bool _isLoading = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _fetchComments();
+    _commentController.addListener(() {
+      // Clear error when user types
+      if (_errorMessage != null) {
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    });
   }
 
   @override
@@ -44,24 +54,45 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _addComment() async {
-    if (_commentController.text.trim().isEmpty) return;
+    final content = _commentController.text.trim();
+    if (content.isEmpty) return;
 
-    setState(() => _isLoading = true);
+    // Kiểm tra blacklist trước khi tạo comment
+    final bannedWords = Blacklist.checkContent(content);
+    if (bannedWords != null) {
+      setState(() {
+        _errorMessage = Blacklist.getErrorMessage(bannedWords);
+      });
+      return;
+    }
+
+    // Clear error nếu không có vi phạm
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+    });
 
     try {
-      await context.read<PostProvider>().addComment(
-        widget.post.id,
-        _commentController.text.trim(),
-      );
+      final postProvider = context.read<PostProvider>();
+      await postProvider.addComment(widget.post.id, content);
+
       if (mounted) {
-        _fetchComments();
-        _commentController.clear();
+        // Kiểm tra nếu có lỗi từ provider
+        if (postProvider.error != null) {
+          setState(() {
+            _errorMessage = postProvider.error;
+          });
+        } else {
+          // Chỉ clear và fetch comments nếu không có lỗi
+          _fetchComments();
+          _commentController.clear();
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
+        setState(() {
+          _errorMessage = e.toString();
+        });
       }
     } finally {
       if (mounted) {
@@ -167,30 +198,80 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     decoration: const BoxDecoration(
                       border: Border(top: BorderSide(color: AppColors.border)),
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _commentController,
-                            decoration: const InputDecoration(
-                              hintText: 'Add a comment...',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSizes.paddingM),
-                        IconButton(
-                          onPressed: _isLoading ? null : _addComment,
-                          icon: _isLoading
-                              ? const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _commentController,
+                                decoration: InputDecoration(
+                                  hintText: 'Add a comment...',
+                                  border: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: _errorMessage != null
+                                          ? Colors.red
+                                          : AppColors.border,
+                                      width: _errorMessage != null ? 2 : 1,
+                                    ),
                                   ),
-                                )
-                              : const Icon(Icons.send),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: _errorMessage != null
+                                          ? Colors.red
+                                          : AppColors.border,
+                                      width: _errorMessage != null ? 2 : 1,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: _errorMessage != null
+                                          ? Colors.red
+                                          : AppColors.primary,
+                                      width: _errorMessage != null ? 2 : 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: AppSizes.paddingM),
+                            IconButton(
+                              onPressed: _isLoading ? null : _addComment,
+                              icon: _isLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.send),
+                            ),
+                          ],
                         ),
+                        // Error message
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: AppSizes.paddingS),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                color: Colors.red,
+                                size: 16,
+                              ),
+                              const SizedBox(width: AppSizes.paddingS),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: AppTextStyles.body2.copyWith(
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

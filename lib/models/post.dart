@@ -11,6 +11,7 @@ class Post {
   final List<String> likedBy;
   final DateTime createdAt;
   final bool isLiked;
+  final bool isApproved;
 
   Post({
     required this.id,
@@ -23,6 +24,7 @@ class Post {
     this.likedBy = const [],
     required this.createdAt,
     this.isLiked = false,
+    this.isApproved = true,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -37,6 +39,7 @@ class Post {
       likedBy: List<String>.from(json['likedBy'] ?? []),
       createdAt: DateTime.parse(json['createdAt']),
       isLiked: json['isLiked'] ?? false,
+      isApproved: json['isApproved'] ?? true,
     );
   }
 
@@ -52,6 +55,7 @@ class Post {
       'likedBy': likedBy,
       'createdAt': createdAt.toIso8601String(),
       'isLiked': isLiked,
+      'isApproved': isApproved,
     };
   }
 
@@ -66,6 +70,7 @@ class Post {
     List<String>? likedBy,
     DateTime? createdAt,
     bool? isLiked,
+    bool? isApproved,
   }) {
     return Post(
       id: id ?? this.id,
@@ -78,6 +83,7 @@ class Post {
       likedBy: likedBy ?? this.likedBy,
       createdAt: createdAt ?? this.createdAt,
       isLiked: isLiked ?? this.isLiked,
+      isApproved: isApproved ?? this.isApproved,
     );
   }
 }

@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user.dart';
 import '../providers/post_provider.dart';
+import '../providers/message_provider.dart';
+import '../services/pocketbase_service.dart';
 import '../utils/constants.dart';
 import '../utils/helpers.dart';
+import 'chat_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   User user;
@@ -73,6 +76,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       } else {
         await postProvider.pocketBaseService.followUser(widget.user.id);
       }
+      print("abccc ${widget.user}");
 
       // Get updated user stats
       final stats = await postProvider.pocketBaseService.getUserStats(
@@ -213,42 +217,78 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
                         const SizedBox(height: AppSizes.paddingL),
 
-                        // Follow Button
+                        // Follow Button and Message Button
                         if (!isCurrentUser) ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              onPressed: _isLoading ? null : _toggleFollow,
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(
-                                  color: _isFollowing
-                                      ? Colors.grey
-                                      : AppColors.primary,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    AppSizes.radiusM,
-                                  ),
-                                ),
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Text(
-                                      _isFollowing ? 'Following' : 'Follow',
-                                      style: AppTextStyles.body1.copyWith(
-                                        color: _isFollowing
-                                            ? Colors.grey
-                                            : AppColors.primary,
-                                        fontWeight: FontWeight.w600,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _isLoading ? null : _toggleFollow,
+                                  style: OutlinedButton.styleFrom(
+                                    side: BorderSide(
+                                      color: _isFollowing
+                                          ? Colors.grey
+                                          : AppColors.primary,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(
+                                        AppSizes.radiusM,
                                       ),
                                     ),
-                            ),
+                                  ),
+                                  child: _isLoading
+                                      ? const SizedBox(
+                                          height: 20,
+                                          width: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          _isFollowing ? 'Following' : 'Follow',
+                                          style: AppTextStyles.body1.copyWith(
+                                            color: _isFollowing
+                                                ? Colors.grey
+                                                : AppColors.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: AppSizes.paddingS),
+                              OutlinedButton(
+                                onPressed: () {
+                                  final currentUser =
+                                      PocketBaseService().currentUser;
+                                  if (currentUser != null) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ChatScreen(otherUser: widget.user),
+                                      ),
+                                    );
+                                  }
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                    color: AppColors.primary,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                      AppSizes.radiusM,
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.all(
+                                    AppSizes.paddingM,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.message_outlined,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ],

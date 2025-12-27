@@ -16,6 +16,60 @@ class AuthProvider extends ChangeNotifier {
 
   PocketBaseService get pocketBaseService => _pocketBaseService;
 
+  // Helper method to parse error messages and return user-friendly messages
+  String _parseErrorMessage(dynamic error) {
+    if (error == null) return 'An unknown error occurred';
+
+    String errorString = error.toString();
+
+    // Handle PocketBase specific errors
+    if (errorString.contains('Failed to authenticate')) {
+      return 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
+    }
+
+    if (errorString.contains('Invalid credentials')) {
+      return 'Email hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.';
+    }
+
+    if (errorString.contains('User not found')) {
+      return 'Tài khoản không tồn tại. Vui lòng kiểm tra email của bạn.';
+    }
+
+    if (errorString.contains('Email not confirmed')) {
+      return 'Email chưa được xác nhận. Vui lòng kiểm tra hộp thư của bạn.';
+    }
+
+    if (errorString.contains('Too many requests')) {
+      return 'Quá nhiều yêu cầu. Vui lòng thử lại sau vài phút.';
+    }
+
+    if (errorString.contains('Network error') ||
+        errorString.contains('Connection failed')) {
+      return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet của bạn.';
+    }
+
+    if (errorString.contains('Server error') ||
+        errorString.contains('Internal server error')) {
+      return 'Lỗi máy chủ. Vui lòng thử lại sau.';
+    }
+
+    if (errorString.contains('Validation failed')) {
+      return 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin nhập vào.';
+    }
+
+    // Handle general exceptions
+    if (errorString.contains('Login failed')) {
+      return 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.';
+    }
+
+    if (errorString.contains('Registration failed')) {
+      return 'Đăng ký thất bại. Vui lòng thử lại.';
+    }
+
+    // Default case - return a generic message
+    return 'Đã xảy ra lỗi. Vui lòng thử lại.';
+  }
+
   void setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -48,7 +102,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       setLoading(false);
       notifyListeners();
       return false;
@@ -66,7 +120,7 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       setLoading(false);
       notifyListeners();
       return false;
@@ -94,8 +148,25 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = updatedUser;
       notifyListeners();
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       notifyListeners();
+    }
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _pocketBaseService.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      notifyListeners();
+    } catch (e) {
+      setError(_parseErrorMessage(e));
+      notifyListeners();
+      throw e; // Re-throw to handle in UI
     }
   }
 
@@ -104,7 +175,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _pocketBaseService.requestEmailVerification(email);
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       notifyListeners();
     }
   }
@@ -114,7 +185,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _pocketBaseService.confirmEmailVerification(token);
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       notifyListeners();
     }
   }
@@ -124,7 +195,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _pocketBaseService.requestPasswordReset(email);
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       notifyListeners();
     }
   }
@@ -142,7 +213,7 @@ class AuthProvider extends ChangeNotifier {
         passwordConfirm,
       );
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       notifyListeners();
     }
   }
@@ -160,7 +231,7 @@ class AuthProvider extends ChangeNotifier {
       );
       notifyListeners();
     } catch (e) {
-      setError(e.toString());
+      setError(_parseErrorMessage(e));
       notifyListeners();
     }
   }

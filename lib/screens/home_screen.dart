@@ -4,7 +4,9 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../providers/auth_provider.dart';
 import '../providers/post_provider.dart';
+import '../providers/notification_provider.dart';
 import '../utils/constants.dart';
+import '../utils/blacklist.dart';
 import '../widgets/post_card.dart';
 import 'feed_screen.dart';
 import 'search_screen.dart';
@@ -32,9 +34,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Load posts when app starts
+    // Load posts and notifications when app starts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PostProvider>().fetchPosts();
+      context.read<NotificationProvider>().initialize();
     });
   }
 
@@ -82,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
             fontWeight: FontWeight.w600,
           ),
           unselectedLabelStyle: AppTextStyles.caption,
-          items: const [
+          items: [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home),
@@ -94,8 +97,30 @@ class _HomeScreenState extends State<HomeScreen> {
               label: AppStrings.search,
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.notifications_outlined),
-              activeIcon: Icon(Icons.notifications),
+              icon: Consumer<NotificationProvider>(
+                builder: (context, notificationProvider, child) {
+                  return Badge(
+                    label: Text(
+                      notificationProvider.unreadCount.toString(),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                    isLabelVisible: notificationProvider.hasUnread,
+                    child: const Icon(Icons.notifications_outlined),
+                  );
+                },
+              ),
+              activeIcon: Consumer<NotificationProvider>(
+                builder: (context, notificationProvider, child) {
+                  return Badge(
+                    label: Text(
+                      notificationProvider.unreadCount.toString(),
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                    isLabelVisible: notificationProvider.hasUnread,
+                    child: const Icon(Icons.notifications),
+                  );
+                },
+              ),
               label: AppStrings.notifications,
             ),
             BottomNavigationBarItem(
@@ -139,13 +164,17 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
   final _contentController = TextEditingController();
   final List<String> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _contentController.addListener(() {
       setState(() {
-        // Force rebuild when text changes
+        // Clear error when user types
+        if (_errorMessage != null) {
+          _errorMessage = null;
+        }
       });
     });
   }
@@ -214,22 +243,39 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     );
   }
 
-  @override
-  void dispose() {
-    _contentController.dispose();
-    super.dispose();
-  }
-
   Future<void> _createPost() async {
-    if (_contentController.text.trim().isNotEmpty) {
-      await context.read<PostProvider>().createPost(
-        _contentController.text.trim(),
-        _selectedImages,
-      );
+    final content = _contentController.text.trim();
 
-      if (mounted) {
+    if (content.isEmpty) return;
+
+    // Kiểm tra blacklist trước khi tạo post
+    final bannedWords = Blacklist.checkContent(content);
+    if (bannedWords != null) {
+      setState(() {
+        _errorMessage = Blacklist.getErrorMessage(bannedWords);
+      });
+      return;
+    }
+
+    // Clear error nếu không có vi phạm
+    setState(() {
+      _errorMessage = null;
+    });
+
+    final postProvider = context.read<PostProvider>();
+    await postProvider.createPost(content, _selectedImages);
+
+    if (mounted) {
+      // Kiểm tra nếu có lỗi khác (không phải blacklist)
+      if (postProvider.error != null) {
+        setState(() {
+          _errorMessage = postProvider.error;
+        });
+      } else {
+        // Chỉ đóng dialog nếu không có lỗi
         Navigator.of(context).pop();
         _contentController.clear();
+        _selectedImages.clear();
       }
     }
   }
@@ -317,25 +363,59 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
             child: Column(
               children: [
                 // Text Input
-                Container(
-                  height: 120, // Giảm chiều cao từ Expanded xuống 120px
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(AppSizes.radiusM),
-                  ),
-                  child: TextField(
-                    controller: _contentController,
-                    maxLines: null,
-                    decoration: InputDecoration(
-                      hintText: AppStrings.whatHappening,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(AppSizes.paddingM),
-                      hintStyle: AppTextStyles.body1.copyWith(
-                        color: AppColors.textLight,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 120, // Giảm chiều cao từ Expanded xuống 120px
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _errorMessage != null
+                              ? Colors.red
+                              : AppColors.border,
+                          width: _errorMessage != null ? 2 : 1,
+                        ),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusM),
+                      ),
+                      child: TextField(
+                        controller: _contentController,
+                        maxLines: null,
+                        decoration: InputDecoration(
+                          hintText: AppStrings.whatHappening,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.all(
+                            AppSizes.paddingM,
+                          ),
+                          hintStyle: AppTextStyles.body1.copyWith(
+                            color: AppColors.textLight,
+                          ),
+                        ),
+                        style: AppTextStyles.body1,
                       ),
                     ),
-                    style: AppTextStyles.body1,
-                  ),
+                    // Error message
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: AppSizes.paddingS),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.red,
+                            size: 16,
+                          ),
+                          const SizedBox(width: AppSizes.paddingS),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: AppTextStyles.body2.copyWith(
+                                color: Colors.red,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
 
                 const SizedBox(height: AppSizes.paddingM),
